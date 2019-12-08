@@ -19,27 +19,9 @@ while True:
 __version__ = '1.0'
 
 
-def read_file(path, file_name, mode) -> str:
-    if not path:
-        path = os.path.join(os.getcwd(), file_name)
-    else:
-        path = os.path.join(path, file_name)
-    response = ''
-    try:
-        with open(path, mode=mode) as f:
-            response = f.read()
-            return response
-    except FileNotFoundError:
-        pass
-
-
 def write_file(file_name, content, mode):
-    try:
-        with open(os.path.join(os.getcwd(), file_name), mode=mode) as f:
-            f.write(content)
-    except Exception as e:
-        print(e.__cause__)
-        return 0
+    with open(os.path.join(args.destination, file_name), mode=mode) as f:
+        f.write(content)
 
 
 def check_args_type(arg: str) -> bytes:
@@ -61,73 +43,85 @@ def red_print(text):
     print(f"{Fore.RED}{text}")
 
 
-def AES_encrypt(key, data):
+def AES_encrypt(key, source):
     try:
         _key = check_args_type(key)
-        _data = check_args_type(data)
+        _data = check_args_type(source)
         if not _key:  # generate AES128 key
             _key = get_random_bytes(16)  # AES128
             write_file('AES_key.bin', _key, 'wb')
 
         cipher = AES.new(_key, AES.MODE_EAX)
         cipher_text, tag = cipher.encrypt_and_digest(_data)
-        with open(os.path.join(os.getcwd(), 'AES_encrypted.bin'), 'wb') as f:
+
+        _file_name = input('Output file name with format(default:`AES_encrypted.bin`): ')
+        if not _file_name:
+            _file_name = 'AES_encrypted.bin'
+        with open(os.path.join(os.getcwd(), _file_name), 'wb') as f:
             [f.write(x) for x in (cipher.nonce, tag, cipher_text)]
         green_print('Successfully AES Encrypted')
         sys.exit()
     except Exception as ex:
-        print(ex.__str__())
-        red_print('Failed AES Encryption')
+        red_print(f'Failed : {ex.__str__()}')
         sys.exit(1)
 
 
-def AES_decrypt(key):
+def AES_decrypt(source, key):
     try:
         _key = check_args_type(key)
-        file = open('AES_encrypted.bin', 'rb')
+
+        file = None
+        if os.path.isfile(source):
+            with open(file=source, mode='rb') as f:
+                file = f
+
+        elif os.path.isfile(os.path.join(os.getcwd(), source)):
+            with open(file=os.path.join(os.getcwd(), source), mode='rb') as f:
+                file = f
+
         nonce, tag, cipher_text = [file.read(x) for x in (16, 16, -1)]
 
         # let's assume that the key is somehow available again
         cipher = AES.new(_key, AES.MODE_EAX, nonce)
         data = cipher.decrypt_and_verify(cipher_text, tag)
-        print(data)
-        write_file('AES_decrypted.txt', data, 'wb')
+
+        _file_name = input('Output File Name with format:')
+
+        write_file(_file_name, data, 'wb')
         green_print('Successfully AES Decrypt')
         sys.exit()
     except Exception as ex:
-        print(ex.__str__())
-        red_print('Failed AES Decryption')
+        red_print(f'Failed: {ex.__str__()}')
         sys.exit(1)
 
 
-def RSA_key_generate(path):
+def RSA_key_generate():
     try:
         key = RSA.generate(2048)
         if args.passphrase:
             private_key = key.export_key(passphrase=args.passphrase)
         else:
             private_key = key.export_key()
-        with open(os.path.join(path, "private.pem"), "wb") as f:
+        with open(os.path.join(args.destination, "private.pem"), "wb") as f:
             f.write(private_key)
 
         public_key = key.publickey().export_key()
-        with open(os.path.join(path, "public.pem"), "wb") as f:
+        with open(os.path.join(args.destination, "public.pem"), "wb") as f:
             f.write(public_key)
         green_print('Successfully RSA Key Generated')
         return public_key
     except Exception as ex:
-        print(ex.__cause__)
-        red_print('Failed RSA Key Generation')
+        red_print(f'Failed: {ex.__str__()} ')
         sys.exit(1)
 
 
-def RSA_encrypt(key, data, dest):
+def RSA_encrypt(key, source, dest):
     try:
         _key = check_args_type(key)
-        _data = check_args_type(data)
+        _data = check_args_type(source)
 
         if not _key:
-            _key = RSA_key_generate(dest)
+            _key = RSA_key_generate()
 
         with open(dest, 'RSA_encrypted.bin') as f:
             p_key = RSA.import_key(_key)
@@ -139,13 +133,12 @@ def RSA_encrypt(key, data, dest):
 
             # Encrypt the data with the AES session key
             cipher_aes = AES.new(session_key, AES.MODE_EAX)
-            ciphertext, tag = cipher_aes.encrypt_and_digest(data)
+            ciphertext, tag = cipher_aes.encrypt_and_digest(_data)
             [f.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
         print('Successfully RSA Encrypted')
         sys.exit()
     except Exception as ex:
-        print(ex.__str__())
-        red_print('Failed RSA Encryption')
+        red_print(f'Failed: {ex.__str__()}')
         sys.exit(1)
 
 
@@ -178,9 +171,7 @@ def RSA_decrypt(data, key, dest):
 
         # save to file
         _file_name = input('Output File Name with format:')
-
-        with open(os.path.join(dest, _file_name), 'w') as f:
-            f.write(data)
+        write_file(_file_name, data, 'w')
 
         green_print(f'Successfully RSA Decrypted \n View {os.path.join(dest, _file_name)}')
         sys.exit()
@@ -193,8 +184,8 @@ if __name__ == '__main__':
     init()  # colorama
 
     z_parser = argparse.ArgumentParser(
-        prog='Z-Locker',
-        description='Zee Encryption and Decryption',
+        prog='Zecryption',
+        description='EaZy Encryption and Decryption',
         epilog='Written By Mosi_kha :D')
 
     z_parser.version = __version__
@@ -244,7 +235,7 @@ if __name__ == '__main__':
 
     z_parser.add_argument(
         '-p',
-        '--passphrase',
+        metavar='Passphrase',
         action='store',
         help='for generate RSA key'
     )
@@ -252,13 +243,14 @@ if __name__ == '__main__':
     args = z_parser.parse_args()
     # print(vars(args))
 
-    if args.destination:
-        if not os.path.isdir(args.destination):
-            raise NotADirectoryError
+    if not os.path.isdir(args.destination):
+        raise NotADirectoryError
 
     if args.mode == 'e' and args.algorithm == 'AES':
-        AES_encrypt(key=args.key, data=args.source)
+        AES_encrypt(key=args.key, source=args.source)
     elif args.mode == 'd' and args.algorithm == 'AES':
-        AES_decrypt(key=args.key)
+        AES_decrypt(source=args.source, key=args.key)
     elif args.mode == 'e' and args.algorithm == 'RSA':
         RSA_encrypt(args.key, args.source, args.destination)
+    elif args.mode == 'd' and args.algoritm == 'RSA':
+        RSA_decrypt(args.source, args.keym, args.destination)
