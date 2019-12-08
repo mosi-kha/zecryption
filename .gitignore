@@ -1,0 +1,15 @@
+# Created by .ignore support plugin (hsz.mobi)
+
+# intelij
+.idea
+
+#env
+.env
+.venv
+
+#
+*.txt
+*.bin
+*pem
+
+
