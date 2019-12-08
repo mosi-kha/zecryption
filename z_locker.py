@@ -12,7 +12,8 @@ while True:
 
         break
     except ModuleNotFoundError:
-        subprocess.call("pip install pycryptodome")
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pycryptodome'])
+
 
 __version__ = '1.0'
 
