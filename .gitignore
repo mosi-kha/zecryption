@@ -6,10 +6,11 @@
 #env
 .env
 .venv
+.tox
 
 #
 *.txt
 *.bin
 *pem
-
+*log
 
