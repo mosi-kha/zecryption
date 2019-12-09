@@ -12,11 +12,15 @@ while True:
         from Crypto.Cipher import AES, PKCS1_OAEP
         from Crypto.Random import get_random_bytes
 
+        from loguru import logger
+
         break
     except ModuleNotFoundError:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pycryptodome', 'colorama '])
 
 __version__ = '1.0'
+
+logger.add('zecryption.log', level='DEBUG')
 
 
 def write_file(file_name, content, mode):
@@ -43,7 +47,7 @@ def red_print(text):
     print(f"{Fore.RED}{text}")
 
 
-def AES_encrypt(key, source):
+def aes_encrypt(key, source):
     try:
         _key = check_args_type(key)
         _data = check_args_type(source)
@@ -57,7 +61,7 @@ def AES_encrypt(key, source):
         _file_name = input('Output file name with format(default:`AES_encrypted.bin`): ')
         if not _file_name:
             _file_name = 'AES_encrypted.bin'
-        with open(os.path.join(os.getcwd(), _file_name), 'wb') as f:
+        with open(os.path.join(args.destination, _file_name), 'wb') as f:
             [f.write(x) for x in (cipher.nonce, tag, cipher_text)]
         green_print('Successfully AES Encrypted')
         sys.exit()
@@ -66,18 +70,16 @@ def AES_encrypt(key, source):
         sys.exit(1)
 
 
-def AES_decrypt(source, key):
+def aes_decrypt(source, key):
     try:
         _key = check_args_type(key)
 
         file = None
         if os.path.isfile(source):
-            with open(file=source, mode='rb') as f:
-                file = f
+            file = open(file=source, mode='rb')
 
         elif os.path.isfile(os.path.join(os.getcwd(), source)):
-            with open(file=os.path.join(os.getcwd(), source), mode='rb') as f:
-                file = f
+            file = open(file=os.path.join(os.getcwd(), source), mode='rb')
 
         nonce, tag, cipher_text = [file.read(x) for x in (16, 16, -1)]
 
@@ -85,7 +87,9 @@ def AES_decrypt(source, key):
         cipher = AES.new(_key, AES.MODE_EAX, nonce)
         data = cipher.decrypt_and_verify(cipher_text, tag)
 
-        _file_name = input('Output File Name with format:')
+        _file_name = input('Output File Name with format(defualt : `AES_decrypted.txt`):')
+        if not _file_name:
+            _file_name = 'AES_decrypted.txt'
 
         write_file(_file_name, data, 'wb')
         green_print('Successfully AES Decrypt')
@@ -95,7 +99,7 @@ def AES_decrypt(source, key):
         sys.exit(1)
 
 
-def RSA_key_generate():
+def rsa_key_generate():
     try:
         key = RSA.generate(2048)
         if args.passphrase:
@@ -115,15 +119,18 @@ def RSA_key_generate():
         sys.exit(1)
 
 
-def RSA_encrypt(key, source, dest):
+def rsa_encrypt(key, source, dest):
     try:
         _key = check_args_type(key)
         _data = check_args_type(source)
 
         if not _key:
-            _key = RSA_key_generate()
+            _key = rsa_key_generate()
 
-        with open(dest, 'RSA_encrypted.bin') as f:
+        _file_name = input('Output File Name and Format(default: `rsa_encrypt.bin`):')
+        if not _file_name:
+            _file_name = 'rsa_encrypt.bin'
+        with open(os.path.join(dest, _file_name), 'wb') as f:
             p_key = RSA.import_key(_key)
             session_key = get_random_bytes(16)
 
@@ -142,20 +149,23 @@ def RSA_encrypt(key, source, dest):
         sys.exit(1)
 
 
-def RSA_decrypt(data, key, dest):
+def rsa_decrypt(source, key, dest):
     try:
         _key = check_args_type(key)
 
-        private_key = RSA.import_key(_key)
+        if not _key:
+            raise ValueError('Key Not Found!')
+        if args.passphrase:
+            private_key = RSA.import_key(_key, args.passphrase)
+        else:
+            private_key = RSA.import_key(_key)
 
         file_in = None
-        if os.path.isfile(data):
-            with open(file=data, mode='rb') as f:
-                file_in = f
+        if os.path.isfile(source):
+            file_in = open(file=source, mode='rb')
 
-        elif os.path.isfile(os.path.join(os.getcwd(), data)):
-            with open(file=os.path.join(os.getcwd(), data), mode='rb') as f:
-                file_in = f
+        elif os.path.isfile(os.path.join(os.getcwd(), source)):
+            file_in = open(file=os.path.join(os.getcwd(), source), mode='rb')
 
         enc_session_key, nonce, tag, ciphertext = \
             [file_in.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1)]
@@ -170,7 +180,9 @@ def RSA_decrypt(data, key, dest):
         data = data.decode("utf-8")
 
         # save to file
-        _file_name = input('Output File Name with format:')
+        _file_name = input('Output File Name with format(default: `rsa_decrypt.txt`):')
+        if not _file_name:
+            _file_name = 'rsa_decrypt.txt'
         write_file(_file_name, data, 'w')
 
         green_print(f'Successfully RSA Decrypted \n View {os.path.join(dest, _file_name)}')
@@ -237,20 +249,22 @@ if __name__ == '__main__':
         '-p',
         metavar='Passphrase',
         action='store',
-        help='for generate RSA key'
+        help='for generate RSA key',
+        dest='passphrase'
     )
 
     args = z_parser.parse_args()
-    # print(vars(args))
+    logger.info(vars(args))
 
     if not os.path.isdir(args.destination):
+        print(args)
         raise NotADirectoryError
 
     if args.mode == 'e' and args.algorithm == 'AES':
-        AES_encrypt(key=args.key, source=args.source)
+        aes_encrypt(key=args.key, source=args.source)
     elif args.mode == 'd' and args.algorithm == 'AES':
-        AES_decrypt(source=args.source, key=args.key)
+        aes_decrypt(source=args.source, key=args.key)
     elif args.mode == 'e' and args.algorithm == 'RSA':
-        RSA_encrypt(args.key, args.source, args.destination)
-    elif args.mode == 'd' and args.algoritm == 'RSA':
-        RSA_decrypt(args.source, args.keym, args.destination)
+        rsa_encrypt(args.key, args.source, args.destination)
+    elif args.mode == 'd' and args.algorithm == 'RSA':
+        rsa_decrypt(args.source, args.key, args.destination)
