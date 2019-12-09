@@ -1,5 +1,8 @@
 # Created by .ignore support plugin (hsz.mobi)
 
+#cache
+__pycache__/
+
 # intelij
 .idea
 
@@ -12,5 +15,5 @@
 *.txt
 *.bin
 *pem
-*log
+*.log
 
