@@ -1,5 +1,5 @@
 import argparse
-from hashlib import sha3_256
+import hashlib
 import subprocess
 import os
 import sys
@@ -18,6 +18,7 @@ while True:
     except ModuleNotFoundError:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pycryptodome', 'colorama '])
 
+__author__ = 'Mostafa Khaki'
 __version__ = '1.0'
 
 logger.add('zecryption.log', level='DEBUG')
@@ -28,7 +29,7 @@ def write_file(file_name, content, mode):
         f.write(content)
 
 
-def check_args_type(arg: str) -> bytes:
+def read_args(arg: str) -> bytes:
     if os.path.isfile(arg):
         with open(file=arg, mode='rb') as f:
             return f.read()
@@ -49,9 +50,10 @@ def red_print(text):
 
 def aes_encrypt(key, source):
     try:
-        _key = check_args_type(key)
-        _data = check_args_type(source)
+        _key = read_args(key)
+        _data = read_args(source)
         if not _key:  # generate AES128 key
+            green_print('Generating AES Key...')
             _key = get_random_bytes(16)  # AES128
             write_file('AES_key.bin', _key, 'wb')
 
@@ -72,7 +74,7 @@ def aes_encrypt(key, source):
 
 def aes_decrypt(source, key):
     try:
-        _key = check_args_type(key)
+        _key = read_args(key)
 
         file = None
         if os.path.isfile(source):
@@ -101,6 +103,7 @@ def aes_decrypt(source, key):
 
 def rsa_key_generate():
     try:
+        green_print('Generating RSA Key...')
         key = RSA.generate(2048)
         if args.passphrase:
             private_key = key.export_key(passphrase=args.passphrase)
@@ -121,8 +124,8 @@ def rsa_key_generate():
 
 def rsa_encrypt(key, source, dest):
     try:
-        _key = check_args_type(key)
-        _data = check_args_type(source)
+        _key = read_args(key)
+        _data = read_args(source)
 
         if not _key:
             _key = rsa_key_generate()
@@ -151,7 +154,7 @@ def rsa_encrypt(key, source, dest):
 
 def rsa_decrypt(source, key, dest):
     try:
-        _key = check_args_type(key)
+        _key = read_args(key)
 
         if not _key:
             raise ValueError('Key Not Found!')
@@ -214,7 +217,8 @@ if __name__ == '__main__':
         help='source file location'
     )
     z_parser.add_argument(
-        'key',
+        '-k',
+        '--key',
         action='store',
         help='key or key file'
     )
@@ -223,7 +227,7 @@ if __name__ == '__main__':
         '-a',
         '--algorithm',
         action='store',
-        choices=['RSA', 'AES', 'sha'],
+        choices=['RSA', 'AES', 'SHA'],
         required=True
     )
 
@@ -233,7 +237,6 @@ if __name__ == '__main__':
         action='store',
         choices=['e', 'd'],
         help=' "e" for encryption | "d" for decryption ',
-        required=True
     )
 
     z_parser.add_argument(
@@ -260,6 +263,14 @@ if __name__ == '__main__':
         print(args)
         raise NotADirectoryError
 
+    if args.algorithm in ['RSA', 'AES']:
+        if not args.mode:
+            red_print('Please choose mode: [e , d]')
+            sys.exit(1)
+        if args.mode == 'd' and not args.key:
+            red_print('Need Key!')
+            sys.exit(1)
+
     if args.mode == 'e' and args.algorithm == 'AES':
         aes_encrypt(key=args.key, source=args.source)
     elif args.mode == 'd' and args.algorithm == 'AES':
@@ -268,3 +279,14 @@ if __name__ == '__main__':
         rsa_encrypt(args.key, args.source, args.destination)
     elif args.mode == 'd' and args.algorithm == 'RSA':
         rsa_decrypt(args.source, args.key, args.destination)
+    elif args.algorithm == 'SHA':
+        _file_name = input('Output Hash File and Format(default= `sha256.txt`): ')
+        if not _file_name:
+            _file_name = 'sha256.txt'
+        hashed = hashlib.sha256(read_args(args.source)).hexdigest()
+        green_print(hashed)
+        write_file(_file_name,
+                   hashed,
+                   'w')
+    else:
+        args.help()
