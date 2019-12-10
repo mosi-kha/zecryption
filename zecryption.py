@@ -30,14 +30,17 @@ def write_file(file_name, content, mode):
 
 
 def read_args(arg: str) -> bytes:
-    if os.path.isfile(arg):
-        with open(file=arg, mode='rb') as f:
-            return f.read()
+    if arg:
+        if os.path.isfile(arg):
+            with open(file=arg, mode='rb') as f:
+                return f.read()
 
-    if os.path.isfile(os.path.join(os.getcwd(), arg)):
-        with open(file=os.path.join(os.getcwd(), arg), mode='rb') as f:
-            return f.read()
-    return arg.encode()
+        if os.path.isfile(os.path.join(os.getcwd(), arg)):
+            with open(file=os.path.join(os.getcwd(), arg), mode='rb') as f:
+                return f.read()
+        return arg.encode()
+    else:
+        return ''.encode()
 
 
 def green_print(text):
@@ -126,7 +129,7 @@ def rsa_encrypt(key, source, dest):
     try:
         _key = read_args(key)
         _data = read_args(source)
-
+        logger.debug(_key)
         if not _key:
             _key = rsa_key_generate()
 
@@ -257,10 +260,10 @@ if __name__ == '__main__':
     )
 
     args = z_parser.parse_args()
-    logger.info(vars(args))
+    # logger.info(vars(args))
 
     if not os.path.isdir(args.destination):
-        print(args)
+        # print(args)
         raise NotADirectoryError
 
     if args.algorithm in ['RSA', 'AES']:
